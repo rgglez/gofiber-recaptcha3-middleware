@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>reCAPTCHA v3 example</title>
+  <script src="https://www.google.com/recaptcha/api.js?render=YOUR_SITE_KEY"></script>
+</head>
+<body>
+  <h2>Contact form</h2>
+
+  <form id="contact-form">
+    <input type="text" name="name" placeholder="Your name" required><br>
+    <input type="email" name="email" placeholder="Your email address" required><br>
+    <button type="submit">Submit</button>
+  </form>
+
+  <script>
+    const form = document.getElementById("contact-form");
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault(); // Prevent inmediate submission
+
+      grecaptcha.ready(function () {
+        grecaptcha.execute("YOUR_SITE_KEY", {action: "contact"}).then(function (token) {
+          // Gather form data
+          const formData = new FormData(form);
+          formData.append("recaptcha_token", token);
+          console.log("TOKEN", token);
+
+          // Encode form data as a JSON
+          const data = {};
+          formData.forEach((value, key) => (data[key] = value));
+
+          console.log("DATA", data)
+
+          // Submit to backend
+          fetch("http://127.0.0.1:3000/contact", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*"
+            },
+            body: JSON.stringify(data),
+          })
+          .then(response => response.json())
+          .then(result => {
+            alert(result.message || "Contact form sent successfully");
+          })
+          .catch(error => {
+            console.error("Error:", error);
+            alert("Error sending the contact form");
+          });
+        });
+      });
+    });
+  </script>
+</body>
+</html>
