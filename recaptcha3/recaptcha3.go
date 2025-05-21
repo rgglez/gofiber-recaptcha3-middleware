@@ -115,7 +115,7 @@ func New(config ...Config) fiber.Handler {
 		}
 		if recaptchaResp.Score < cfg.MinScore {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "To low reCAPTCHA score",
+				"error": "Too low reCAPTCHA score",
 				"score": recaptchaResp.Score,
 			})
 		}
