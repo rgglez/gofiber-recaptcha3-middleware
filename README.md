@@ -33,6 +33,7 @@ app.Use(recaptcha3.New(recaptcha3.Config{
 ## Configuration
 
 * **Next** defines a function to skip this middleware when returned true. Optional. Default: nil
+* **NoNext** defines a function to "force" this middleware when returned true.  Optional. Default: nil
 * **Secret** reCAPTCHA secret key. Required string.
 * **ExpectedAction** is the expected action. Example: "login" o "submit". Required string.
 * **MinScore** the lowest acceptable score. Example: 0.5. Required float.

@@ -1,3 +1,21 @@
+/*
+
+   Copyright 2025 Rodolfo González González
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+*/
+
 package recaptcha3
 
 import (
@@ -15,6 +33,10 @@ type Config struct {
 	// Next defines a function to skip this middleware when returned true.
 	// Optional. Default: nil
 	Next func(c *fiber.Ctx) bool
+
+	// NoNext defines a function to "force" this middleware when returned true.
+	// Optional. Default: nil
+	NoNext func(c *fiber.Ctx) bool
 
 	// reCAPTCHA secret key
 	// Required string.
@@ -38,6 +60,7 @@ type Config struct {
 // Set the default configuration.
 var ConfigDefault = Config{
 	Next:       nil,
+	NoNext:     nil,
 	TokenField: "recaptcha_token",
 }
 
@@ -69,6 +92,10 @@ func New(config ...Config) fiber.Handler {
 
 	return func(c *fiber.Ctx) error {
 		if cfg.Next != nil && cfg.Next(c) {
+			return c.Next()
+		}
+
+		if cfg.NoNext != nil && !cfg.NoNext(c) {
 			return c.Next()
 		}
 
