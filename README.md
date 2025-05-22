@@ -18,7 +18,7 @@ go get github.com/rgglez/gofiber-recaptcha3-middleware
 ## Usage
 
 ```go
-import recaptcha3 "github.com/rgglez/gofiber-recaptcha3-middleware/recaptcha3"
+import recaptcha3 "github.com/rgglez/gofiber-recaptcha3-middleware"
 
 // ...
 

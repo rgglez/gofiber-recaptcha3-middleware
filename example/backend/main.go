@@ -5,7 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	recaptcha3 "github.com/rgglez/gofiber-recaptcha3-middleware/recaptcha3"
+	recaptcha3 "github.com/rgglez/gofiber-recaptcha3-middleware"
 )
 
 func main() {
