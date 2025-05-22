@@ -17,6 +17,8 @@ go get github.com/rgglez/gofiber-recaptcha3-middleware
 
 ## Usage
 
+Basic usage:
+
 ```go
 import recaptcha3 "github.com/rgglez/gofiber-recaptcha3-middleware"
 
@@ -29,6 +31,8 @@ app.Use(recaptcha3.New(recaptcha3.Config{
 	MinScore:       0.5,
 }))
 ```
+
+See the [examples](examples/) directory for more usage examples.
 
 ## Configuration
 
