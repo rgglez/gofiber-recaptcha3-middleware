@@ -58,10 +58,11 @@ go run .
 
 * go get github.com/gofiber/fiber/v2
 * go get github.com/go-playground/validator/v10
+* go get resty.dev/v3
 
 ## Security
 
-* Remember that reCAPTCHA v3 does not stops bots directly, but just gives a risk score. It is responsability of the application to accept the request or deny it.
+* Remember that reCAPTCHA v3 does not stop bots directly, but just gives a risk score. It is responsability of the application to accept the request or deny it.
 * Another captcha (such as reCAPTCHA v2) could be shown with a classic challenge as a "plan B", if the score is lower than expected. 
 
 ## License

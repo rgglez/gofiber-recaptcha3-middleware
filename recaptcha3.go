@@ -19,11 +19,11 @@
 package recaptcha3
 
 import (
-	"encoding/json"
-	"net/http"
-	"net/url"
+	"log"
+	"time"
 
 	fiber "github.com/gofiber/fiber/v2"
+	resty "resty.dev/v3"
 )
 
 //-----------------------------------------------------------------------------
@@ -78,6 +78,10 @@ type RecaptchaResponse struct {
 
 //-----------------------------------------------------------------------------
 
+var client *resty.Client
+
+//-----------------------------------------------------------------------------
+
 // Global reCAPTCHA middleware with Skip support
 func New(config ...Config) fiber.Handler {
 	cfg := ConfigDefault
@@ -89,6 +93,16 @@ func New(config ...Config) fiber.Handler {
 			cfg.TokenField = ConfigDefault.TokenField
 		}
 	}
+
+	client = resty.New().
+		SetRetryCount(3).
+		SetRetryWaitTime(2 * time.Second).
+		SetRetryMaxWaitTime(8 * time.Second).
+		AddRetryConditions(
+			func(r *resty.Response, err error) bool {
+				// Reintentar si hay error de red o código 5xx
+				return err != nil || r.StatusCode() >= 500
+			})
 
 	return func(c *fiber.Ctx) error {
 		if cfg.Next != nil && cfg.Next(c) {
@@ -114,42 +128,37 @@ func New(config ...Config) fiber.Handler {
 		}
 
 		// Verify with Google ReCaptcha API
-		resp, err := http.PostForm("https://www.google.com/recaptcha/api/siteverify",
-			url.Values{
-				"secret":   {cfg.Secret},
-				"response": {token},
-			})
+		client := resty.New()
+
+		resp := RecaptchaResponse{}
+		_, err := client.R().
+			SetFormData(map[string]string{
+				"secret":   cfg.Secret,
+				"response": token,
+				"remoteip": c.IP(),
+			}).
+			SetResult(&resp).
+			Post("https://www.google.com/recaptcha/api/siteverify")
+
 		if err != nil {
+			log.Println("Error calling reCAPTCHA:", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Error contacting reCAPTCHA servers",
-			})
-		}
-		defer resp.Body.Close()
-
-		var recaptchaResp RecaptchaResponse
-		if err := json.NewDecoder(resp.Body).Decode(&recaptchaResp); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Error parsing reCAPTCHA response",
+				"error": "Failed to verify reCAPTCHA",
 			})
 		}
 
-		// Validation
-		if !recaptchaResp.Success {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":       "Failed reCAPTCHA validation",
-				"error_codes": recaptchaResp.ErrorCodes,
+		if !resp.Success || resp.Score < cfg.MinScore {
+			log.Println("OUCH!!!")
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error":   "reCAPTCHA verification failed",
+				"details": resp,
 			})
 		}
-		if recaptchaResp.Score < cfg.MinScore {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "Too low reCAPTCHA score",
-				"score": recaptchaResp.Score,
-			})
-		}
-		if recaptchaResp.Action != cfg.ExpectedAction {
+
+		if resp.Action != cfg.ExpectedAction {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error":  "Unexpected reCAPTCHA actiom",
-				"action": recaptchaResp.Action,
+				"action": resp.Action,
 			})
 		}
 
