@@ -57,7 +57,6 @@ go run .
 ## Dependencies
 
 * go get github.com/gofiber/fiber/v2
-* go get github.com/go-playground/validator/v10
 * go get resty.dev/v3
 
 ## Security
