@@ -19,7 +19,6 @@
 package recaptcha3
 
 import (
-	"log"
 	"time"
 
 	fiber "github.com/gofiber/fiber/v2"
@@ -53,6 +52,10 @@ type Config struct {
 	// Token field in the JSON body ()
 	// Optional. Default: "recaptcha_token"
 	TokenField string
+
+	// Resty client 
+	// Optional. Pass it if you want to change the retry or timeout defaults.
+	Client *resty.Client
 }
 
 //-----------------------------------------------------------------------------
@@ -78,12 +81,8 @@ type RecaptchaResponse struct {
 
 //-----------------------------------------------------------------------------
 
-var client *resty.Client
-
-//-----------------------------------------------------------------------------
-
 // Global reCAPTCHA middleware with Skip support
-func New(config ...Config) fiber.Handler {
+func New(config ...Config) fiber.Handler {	
 	cfg := ConfigDefault
 
 	if len(config) > 0 {
@@ -92,17 +91,17 @@ func New(config ...Config) fiber.Handler {
 		if cfg.TokenField == "" {
 			cfg.TokenField = ConfigDefault.TokenField
 		}
+		if cfg.Client == nil {
+			cfg.Client = resty.New().
+				SetRetryCount(3).
+				SetRetryWaitTime(2 * time.Second).
+				SetRetryMaxWaitTime(8 * time.Second).
+				AddRetryConditions(
+					func(r *resty.Response, err error) bool {
+						return err != nil || r.StatusCode() >= 500
+					})
+		}
 	}
-
-	client = resty.New().
-		SetRetryCount(3).
-		SetRetryWaitTime(2 * time.Second).
-		SetRetryMaxWaitTime(8 * time.Second).
-		AddRetryConditions(
-			func(r *resty.Response, err error) bool {
-				// Reintentar si hay error de red o código 5xx
-				return err != nil || r.StatusCode() >= 500
-			})
 
 	return func(c *fiber.Ctx) error {
 		if cfg.Next != nil && cfg.Next(c) {
@@ -127,11 +126,8 @@ func New(config ...Config) fiber.Handler {
 			})
 		}
 
-		// Verify with Google ReCaptcha API
-		client := resty.New()
-
 		resp := RecaptchaResponse{}
-		_, err := client.R().
+		_, err := cfg.Client.R().
 			SetFormData(map[string]string{
 				"secret":   cfg.Secret,
 				"response": token,
@@ -141,23 +137,21 @@ func New(config ...Config) fiber.Handler {
 			Post("https://www.google.com/recaptcha/api/siteverify")
 
 		if err != nil {
-			log.Println("Error calling reCAPTCHA:", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Failed to verify reCAPTCHA",
 			})
 		}
 
 		if !resp.Success || resp.Score < cfg.MinScore {
-			log.Println("OUCH!!!")
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"error":   "reCAPTCHA verification failed",
 				"details": resp,
 			})
 		}
 
-		if resp.Action != cfg.ExpectedAction {
+		if cfg.ExpectedAction != "" && resp.Action != cfg.ExpectedAction {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":  "Unexpected reCAPTCHA actiom",
+				"error":  "Unexpected reCAPTCHA action",
 				"action": resp.Action,
 			})
 		}
